@@ -10,4 +10,9 @@ dedue is a load balancer written in Go.
 
 # Testing
 
-- Run go test to test the source code.
+- Run go test ./... to test the source code.
+
+# Source control
+
+- Write a short, concise commit message summarizing what was done. Add more details in the commit description if needed.
+- Then add commits to the current branch after testing contains no errors or warnings. Announce any commits added at end of your message.
