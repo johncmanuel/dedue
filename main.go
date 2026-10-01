@@ -1,5 +1,36 @@
 package main
 
-func main() {
+import (
+	"flag"
+	"log"
+	"net/http"
+	"net/url"
 
+	"github.com/johncmanuel/dedue/internal/balancer"
+)
+
+func main() {
+	// parse command line flags
+	listen := flag.String("listen", ":8080", "address to listen on")
+	flag.Parse()
+	if flag.NArg() == 0 {
+		log.Fatal("usage: dedue [-listen :8080] <backend-url>...")
+	}
+
+	d := balancer.NewDedue()
+
+	// add backends from command line args
+	for _, address := range flag.Args() {
+		backend, err := url.Parse(address)
+		if err != nil || (backend.Scheme != "http" && backend.Scheme != "https") || backend.Host == "" {
+			log.Fatalf("invalid backend URL: %q", address)
+		}
+		// assume weight of 1 to keep things simple rn
+		d.AddServer(address, 1)
+	}
+
+	log.Printf("listening on %s with %d backends", *listen, len(d.Servers))
+	if err := http.ListenAndServe(*listen, d); err != nil {
+		log.Fatal(err)
+	}
 }
