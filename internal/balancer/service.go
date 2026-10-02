@@ -26,6 +26,8 @@ type Dedue struct {
 	servers []Server
 }
 
+// thought to myself: do we really need to use the mutex on data piece?
+
 // NewDedue creates the load balancer
 func NewDedue() *Dedue {
 	return &Dedue{
@@ -131,26 +133,29 @@ func (d *Dedue) PeriodicHealthCheck(ctx context.Context, interval time.Duration)
 	defer ticker.Stop()
 
 	for {
+		// wait for the next tick or context cancellation
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 		}
 
+		// add copy of servers to avoid holding the lock while performing health checks
 		d.mu.Lock()
 		servers := append([]Server(nil), d.servers...)
 		d.mu.Unlock()
 
+		// perform health checks for each server
 		for i, server := range servers {
 			probeCtx, cancel := context.WithTimeout(ctx, time.Second)
 			healthy := d.HealthCheck(probeCtx, server.Address)
+
 			cancel()
 			if ctx.Err() != nil {
 				return
 			}
 
 			d.mu.Lock()
-			// ponytail: servers only append; use stable IDs if removal is added.
 			d.servers[i].IsHealthy = healthy
 			d.mu.Unlock()
 		}
