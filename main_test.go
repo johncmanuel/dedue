@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/johncmanuel/dedue/internal/balancer"
+	"github.com/johncmanuel/dedue/internal/strategy"
 )
 
 // mockHealthyServer creates a mock HTTP server that responds with a 200 OK status and a custom header indicating the backend ID.
@@ -33,8 +34,12 @@ func TestNoHealthyBackends(t *testing.T) {
 
 // TestNoBalancingStrategy tests that the load balancer returns a 503 Service Unavailable status when no balancing strategy is configured.
 func TestNoBalancingStrategy(t *testing.T) {
+	b := mockHealthyServer(t, "a")
 	d := balancer.NewDedue()
-	d.Strategy = nil // explicitly set to nil
+	d.AddServer(b.URL, 1)
+	if d.Strategy != nil {
+		t.Fatal("new balancer unexpectedly has a strategy")
+	}
 	response := httptest.NewRecorder()
 	d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
 	if response.Code != http.StatusServiceUnavailable {
@@ -47,6 +52,7 @@ func TestRoundRobinSingleHealthyBackend(t *testing.T) {
 	b := mockHealthyServer(t, "a")
 
 	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRoundRobin()
 	d.AddServer(b.URL, 1)
 
 	response := httptest.NewRecorder()
@@ -66,6 +72,7 @@ func TestRoundRobinMultipleHealthyBackends(t *testing.T) {
 	b3 := mockHealthyServer(t, "c")
 
 	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRoundRobin()
 	d.AddServer(b1.URL, 1)
 	d.AddServer(b2.URL, 1)
 	d.AddServer(b3.URL, 1)

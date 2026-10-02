@@ -24,8 +24,7 @@ type Dedue struct {
 // NewDedue creates the load balancer
 func NewDedue() *Dedue {
 	return &Dedue{
-		Client:   &http.Client{Timeout: 10 * time.Second},
-		Strategy: &strategy.RoundRobin{},
+		Client: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 

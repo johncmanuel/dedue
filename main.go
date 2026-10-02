@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/johncmanuel/dedue/internal/balancer"
+	"github.com/johncmanuel/dedue/internal/strategy"
 )
 
 func main() {
@@ -18,6 +19,7 @@ func main() {
 	}
 
 	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRoundRobin()
 
 	// add backends from command line args
 	for _, address := range flag.Args() {
