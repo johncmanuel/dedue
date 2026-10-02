@@ -94,10 +94,18 @@ func (d *Dedue) AddServer(address string, weight int) {
 	d.mu.Unlock()
 }
 
-// HealthCheck checks the health of a server by sending a GET request to its address and checking the response status code.
+// HealthCheck checks the health of a server by sending a GET request to its /health endpoint.
 // If the response status code is 200 OK (or generally 2xx), the server is considered healthy. Otherwise, it's considered unhealthy.
 func (d *Dedue) HealthCheck(address string) bool {
-	resp, err := d.Client.Get(address)
+	probeURL, err := url.Parse(address)
+	if err != nil {
+		return false
+	}
+	probeURL.Path = "/health"
+	probeURL.RawPath = ""
+	probeURL.RawQuery = ""
+	probeURL.Fragment = ""
+	resp, err := d.Client.Get(probeURL.String())
 	if err != nil {
 		return false
 	}

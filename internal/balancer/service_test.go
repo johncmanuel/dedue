@@ -50,3 +50,18 @@ func TestConcurrentAddServerKeepsEachHealthResult(t *testing.T) {
 		}
 	}
 }
+
+func TestHealthCheckUsesHealthEndpoint(t *testing.T) {
+	d := NewDedue()
+	d.Client.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if got := req.URL.Path; got != "/health" {
+			t.Errorf("health check path = %q, want /health", got)
+			return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+	})
+
+	if !d.HealthCheck("http://backend.test/app?version=1") {
+		t.Fatal("backend with a healthy /health endpoint was marked unhealthy")
+	}
+}

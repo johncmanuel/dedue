@@ -12,7 +12,7 @@ Start local mock backends and the load balancer:
 curl -i http://127.0.0.1:8080/
 ```
 
-The Go mock backends return their ID in the body and `X-Backend` header. Press Ctrl-C in the cluster terminal to stop all servers. Use `./run_cluster.sh 3 9001 127.0.0.1:8080` to choose the backend count, first backend port, and listen address.
+The Go mock backends return their ID in the body and `X-Backend` header. Each also serves `GET /health` with a 200 status for the balancer's startup check. Press Ctrl-C in the cluster terminal to stop all servers. Use `./run_cluster.sh 3 9001 127.0.0.1:8080` to choose the backend count, first backend port, and listen address.
 
 ## TODO
 
