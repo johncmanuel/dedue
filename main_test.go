@@ -77,12 +77,14 @@ func TestRoundRobinMultipleHealthyBackends(t *testing.T) {
 	d.AddServer(b2.URL, 1)
 	d.AddServer(b3.URL, 1)
 
-	response := httptest.NewRecorder()
-	d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/resource?x=1", nil))
-	if response.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
-	}
-	if got := response.Header().Get("X-Backend"); got != "a" {
-		t.Fatalf("backend = %q, want %q", got, "a")
+	for i, want := range []string{"a", "b", "c", "a", "b", "c"} {
+		response := httptest.NewRecorder()
+		d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/resource?x=1", nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want %d", i+1, response.Code, http.StatusOK)
+		}
+		if got := response.Header().Get("X-Backend"); got != want {
+			t.Fatalf("request %d: backend = %q, want %q", i+1, got, want)
+		}
 	}
 }
