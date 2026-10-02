@@ -9,17 +9,20 @@ import (
 	"github.com/johncmanuel/dedue/internal/strategy"
 )
 
-// mockHealthyServer creates a mock HTTP server that responds with a 200 OK status and a custom header indicating the backend ID.
-// Used for testing the load balancer's behavior with healthy backends.
-func mockHealthyServer(t *testing.T, id string) *httptest.Server {
+func mockBackend(t *testing.T, id string, status int) *httptest.Server {
 	t.Helper()
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Backend", id)
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(status)
 	}))
 	t.Cleanup(s.Close)
 	return s
+}
+
+func mockHealthyServer(t *testing.T, id string) *httptest.Server {
+	t.Helper()
+	return mockBackend(t, id, http.StatusOK)
 }
 
 // TestNoHealthyBackends tests that the load balancer returns a 503 Service Unavailable status when there are no healthy backends available.
@@ -86,5 +89,71 @@ func TestRoundRobinMultipleHealthyBackends(t *testing.T) {
 		if got := response.Header().Get("X-Backend"); got != want {
 			t.Fatalf("request %d: backend = %q, want %q", i+1, got, want)
 		}
+	}
+}
+
+// TestRoundRobinSkipsUnhealthyBackends tests that the round robin algorithm skips unhealthy backends and returns the expected responses from healthy backends.
+func TestRoundRobinSkipsUnhealthyBackends(t *testing.T) {
+	unhealthyFirst := mockBackend(t, "a", http.StatusServiceUnavailable)
+	healthyFirst := mockHealthyServer(t, "b")
+	unhealthyMiddle := mockBackend(t, "c", http.StatusServiceUnavailable)
+	healthyLast := mockHealthyServer(t, "d")
+
+	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRoundRobin()
+	d.AddServer(unhealthyFirst.URL, 1)
+	d.AddServer(healthyFirst.URL, 1)
+	d.AddServer(unhealthyMiddle.URL, 1)
+	d.AddServer(healthyLast.URL, 1)
+
+	for i, want := range []string{"b", "d", "b", "d"} {
+		response := httptest.NewRecorder()
+		d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want %d", i+1, response.Code, http.StatusOK)
+		}
+		if got := response.Header().Get("X-Backend"); got != want {
+			t.Fatalf("request %d: backend = %q, want %q", i+1, got, want)
+		}
+	}
+}
+
+// TestRoundRobinOnehealthyAmongUnhealthyBackends tests that the round robin algorithm correctly selects the only healthy backend among multiple unhealthy backends
+// and returns the expected responses.
+func TestRoundRobinOneHealthyAmongUnhealthyBackends(t *testing.T) {
+	unhealthy := mockBackend(t, "a", http.StatusServiceUnavailable)
+	healthy := mockHealthyServer(t, "b")
+
+	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRoundRobin()
+	d.AddServer(unhealthy.URL, 1)
+	d.AddServer(healthy.URL, 1)
+
+	for i := range 3 {
+		response := httptest.NewRecorder()
+		d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want %d", i+1, response.Code, http.StatusOK)
+		}
+		if got := response.Header().Get("X-Backend"); got != "b" {
+			t.Fatalf("request %d: backend = %q, want %q", i+1, got, "b")
+		}
+	}
+}
+
+// TestRoundRobinAllUnhealthyBackends tests that the round robin algorithm returns a 503 Service Unavailable status when all backends are unhealthy.
+func TestRoundRobinAllUnhealthyBackends(t *testing.T) {
+	b1 := mockBackend(t, "a", http.StatusServiceUnavailable)
+	b2 := mockBackend(t, "b", http.StatusServiceUnavailable)
+
+	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRoundRobin()
+	d.AddServer(b1.URL, 1)
+	d.AddServer(b2.URL, 1)
+
+	response := httptest.NewRecorder()
+	d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusServiceUnavailable)
 	}
 }
