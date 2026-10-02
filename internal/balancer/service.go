@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/johncmanuel/dedue/internal/strategy"
@@ -15,8 +16,9 @@ type Server = strategy.Server
 // Dedue is the load balancer
 type Dedue struct {
 	Client   *http.Client
-	Servers  []Server
 	Strategy strategy.BalancingStrategy
+	mu       sync.Mutex
+	servers  []Server
 }
 
 // NewDedue creates the load balancer
@@ -29,12 +31,15 @@ func NewDedue() *Dedue {
 
 // ServeHTTP forwards a request to a healthy backend selected by the strategy.
 func (d *Dedue) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	eligible := make([]Server, 0, len(d.Servers))
-	for _, server := range d.Servers {
+	d.mu.Lock()
+	eligible := make([]Server, 0, len(d.servers))
+	for _, server := range d.servers {
 		if server.IsHealthy {
 			eligible = append(eligible, server)
 		}
 	}
+	d.mu.Unlock()
+
 	if len(eligible) == 0 {
 		http.Error(w, "no healthy backends available", http.StatusServiceUnavailable)
 		return
@@ -75,14 +80,15 @@ func (d *Dedue) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // AddServer adds a server to the load balancer and performs a health check on it.
 func (d *Dedue) AddServer(address string, weight int) {
-	d.Servers = append(d.Servers, Server{
+	healthy := d.HealthCheck(address)
+
+	d.mu.Lock()
+	d.servers = append(d.servers, Server{
 		Address:   address,
 		Weight:    weight,
-		IsHealthy: false,
+		IsHealthy: healthy,
 	})
-	if d.HealthCheck(address) {
-		d.Servers[len(d.Servers)-1].IsHealthy = true
-	}
+	d.mu.Unlock()
 }
 
 // HealthCheck checks the health of a server by sending a GET request to its address and checking the response status code.

@@ -29,7 +29,7 @@ func main() {
 		d.AddServer(address, 1)
 	}
 
-	log.Printf("listening on %s with %d backends", *listen, len(d.Servers))
+	log.Printf("listening on %s with %d backends", *listen, flag.NArg())
 	if err := http.ListenAndServe(*listen, d); err != nil {
 		log.Fatal(err)
 	}
