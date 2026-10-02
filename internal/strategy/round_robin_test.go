@@ -18,6 +18,24 @@ func TestRoundRobinEmptyEligibleServers(t *testing.T) {
 	}
 }
 
+func TestRoundRobinEligibleListShrinks(t *testing.T) {
+	roundRobin := NewRoundRobin()
+	servers := []Server{{Address: "a"}, {Address: "b"}, {Address: "c"}}
+	for range 2 {
+		if _, err := roundRobin.Select(servers); err != nil {
+			t.Fatalf("Select returned an unexpected error: %v", err)
+		}
+	}
+
+	selected, err := roundRobin.Select([]Server{{Address: "b"}})
+	if err != nil {
+		t.Fatalf("Select returned an unexpected error: %v", err)
+	}
+	if selected.Address != "b" {
+		t.Fatalf("selected backend = %q, want %q", selected.Address, "b")
+	}
+}
+
 // TestRoundRobinConcurrentSelection tests that the round robin algorithm correctly selects servers in a concurrent environment.
 func TestRoundRobinConcurrentSelection(t *testing.T) {
 	const (

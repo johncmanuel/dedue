@@ -1,6 +1,7 @@
 package balancer
 
 import (
+	"context"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -97,21 +98,72 @@ func (d *Dedue) AddServer(address string, weight int) {
 // HealthCheck checks the health of a server by sending a GET request to its /health endpoint.
 // If the response status code is 200 OK (or generally 2xx), the server is considered healthy. Otherwise, it's considered unhealthy.
 func (d *Dedue) HealthCheck(address string) bool {
+	return d.healthCheck(context.Background(), address)
+}
+
+func (d *Dedue) healthCheck(ctx context.Context, address string) bool {
 	probeURL, err := url.Parse(address)
 	if err != nil {
 		return false
 	}
+
 	probeURL.Path = "/health"
 	probeURL.RawPath = ""
 	probeURL.RawQuery = ""
 	probeURL.Fragment = ""
-	resp, err := d.Client.Get(probeURL.String())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, probeURL.String(), nil)
 	if err != nil {
 		return false
 	}
+	resp, err := d.Client.Do(req)
+	if err != nil {
+		return false
+	}
+
 	healthy := resp.StatusCode >= 200 && resp.StatusCode < 300
 	if err := resp.Body.Close(); err != nil {
 		return false
 	}
+
 	return healthy
+}
+
+// PeriodicHealthCheck updates backend health until ctx is canceled.
+func (d *Dedue) PeriodicHealthCheck(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		d.mu.Lock()
+		addresses := make([]string, len(d.servers))
+		for i, server := range d.servers {
+			addresses[i] = server.Address
+		}
+		d.mu.Unlock()
+
+		for i, address := range addresses {
+			if ctx.Err() != nil {
+				return
+			}
+			probeCtx, cancel := context.WithTimeout(ctx, time.Second)
+			healthy := d.healthCheck(probeCtx, address)
+			cancel()
+			if ctx.Err() != nil {
+				return
+			}
+
+			d.mu.Lock()
+			if i < len(d.servers) && d.servers[i].Address == address {
+				d.servers[i].IsHealthy = healthy
+			}
+			d.mu.Unlock()
+		}
+	}
 }

@@ -27,6 +27,7 @@ func (r *RoundRobin) Select(eligible []Server) (Server, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	r.currentIndex %= len(eligible)
 	defer r.IncrementIndex(eligible)
 	return eligible[r.currentIndex], nil
 }
