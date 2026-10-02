@@ -42,8 +42,8 @@ func TestNoBalancingStrategy(t *testing.T) {
 	}
 }
 
-// TestProxyForwardsToHealthyBackend tests that the load balancer correctly forwards requests to a healthy backend and returns the expected response.
-func TestProxyForwardsToHealthyBackend(t *testing.T) {
+// TestRoundRobinSingleHealthyBackend tests the round robin algorithm for a healthy backend and returns the expected response.
+func TestRoundRobinSingleHealthyBackend(t *testing.T) {
 	b := mockHealthyServer(t, "a")
 
 	d := balancer.NewDedue()
@@ -59,8 +59,8 @@ func TestProxyForwardsToHealthyBackend(t *testing.T) {
 	}
 }
 
-// TestProxyForwardsToHealthyBackends tests that the load balancer correctly forwards requests to multiple healthy backends and return the expected responses.
-func TestProxyForwardsToHealthyBackends(t *testing.T) {
+// TestRoundRobinMultipleHealthyBackends tests the round robin algorithm for multiple healthy backends and returns the expected responses.
+func TestRoundRobinMultipleHealthyBackends(t *testing.T) {
 	b1 := mockHealthyServer(t, "a")
 	b2 := mockHealthyServer(t, "b")
 	b3 := mockHealthyServer(t, "c")
