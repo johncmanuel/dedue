@@ -64,7 +64,7 @@ func TestHealthCheckUsesHealthEndpoint(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
 	})
 
-	if !d.HealthCheck("http://backend.test/app?version=1") {
+	if !d.HealthCheck(context.Background(), "http://backend.test/app?version=1") {
 		t.Fatal("backend with a healthy /health endpoint was marked unhealthy")
 	}
 }

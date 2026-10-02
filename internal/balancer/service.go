@@ -84,7 +84,7 @@ func (d *Dedue) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // AddServer adds a server to the load balancer and performs a health check on it.
 func (d *Dedue) AddServer(address string, weight int) {
-	healthy := d.HealthCheck(address)
+	healthy := d.HealthCheck(context.Background(), address)
 
 	d.mu.Lock()
 	d.servers = append(d.servers, Server{
@@ -97,11 +97,7 @@ func (d *Dedue) AddServer(address string, weight int) {
 
 // HealthCheck checks the health of a server by sending a GET request to its /health endpoint.
 // If the response status code is 200 OK (or generally 2xx), the server is considered healthy. Otherwise, it's considered unhealthy.
-func (d *Dedue) HealthCheck(address string) bool {
-	return d.healthCheck(context.Background(), address)
-}
-
-func (d *Dedue) healthCheck(ctx context.Context, address string) bool {
+func (d *Dedue) HealthCheck(ctx context.Context, address string) bool {
 	probeURL, err := url.Parse(address)
 	if err != nil {
 		return false
@@ -142,27 +138,20 @@ func (d *Dedue) PeriodicHealthCheck(ctx context.Context, interval time.Duration)
 		}
 
 		d.mu.Lock()
-		addresses := make([]string, len(d.servers))
-		for i, server := range d.servers {
-			addresses[i] = server.Address
-		}
+		servers := append([]Server(nil), d.servers...)
 		d.mu.Unlock()
 
-		for i, address := range addresses {
-			if ctx.Err() != nil {
-				return
-			}
+		for i, server := range servers {
 			probeCtx, cancel := context.WithTimeout(ctx, time.Second)
-			healthy := d.healthCheck(probeCtx, address)
+			healthy := d.HealthCheck(probeCtx, server.Address)
 			cancel()
 			if ctx.Err() != nil {
 				return
 			}
 
 			d.mu.Lock()
-			if i < len(d.servers) && d.servers[i].Address == address {
-				d.servers[i].IsHealthy = healthy
-			}
+			// ponytail: servers only append; use stable IDs if removal is added.
+			d.servers[i].IsHealthy = healthy
 			d.mu.Unlock()
 		}
 	}

@@ -2,14 +2,10 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/johncmanuel/dedue/internal/balancer"
@@ -37,32 +33,10 @@ func main() {
 		d.AddServer(address, 1)
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	healthDone := make(chan struct{})
-	go func() {
-		defer close(healthDone)
-		d.PeriodicHealthCheck(ctx, 5*time.Second)
-	}()
-
-	server := &http.Server{Addr: *listen, Handler: d}
-	shutdownDone := make(chan error, 1)
-	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		shutdownDone <- server.Shutdown(shutdownCtx)
-	}()
+	go d.PeriodicHealthCheck(context.Background(), time.Minute)
 
 	log.Printf("listening on %s with %d backends", *listen, flag.NArg())
-	err := server.ListenAndServe()
-	if !errors.Is(err, http.ErrServerClosed) {
-		stop()
-		<-healthDone
+	if err := http.ListenAndServe(*listen, d); err != nil {
 		log.Fatal(err)
 	}
-	if err := <-shutdownDone; err != nil {
-		log.Printf("shut down server: %v", err)
-	}
-	<-healthDone
 }
