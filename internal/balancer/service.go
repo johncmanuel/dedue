@@ -13,12 +13,16 @@ import (
 // Server is dedue's representation of a backend server.
 type Server = strategy.Server
 
-// Dedue is the load balancer
+// Dedue is the load balancer itself.
 type Dedue struct {
-	Client   *http.Client
+	Client *http.Client
+	// Strategy is the load balancing strategy used to select a server from the eligible servers.
 	Strategy strategy.BalancingStrategy
-	mu       sync.Mutex
-	servers  []Server
+	// mu is a mutex used to synchronize access to the servers slice.
+	mu sync.Mutex
+	// servers is a static list of backend servers managed by the load balancer.
+	// TODO: implement dynamic server management (add/remove servers at runtime)
+	servers []Server
 }
 
 // NewDedue creates the load balancer

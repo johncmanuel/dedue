@@ -18,7 +18,8 @@ type Server struct {
 	IsHealthy bool
 }
 
-// BalancingStrategy selects a server from the eligible servers.
+// BalancingStrategy selects a server from the eligible servers. All strategies
+// must implement the interface.
 type BalancingStrategy interface {
 	Select(eligible []Server) (Server, error)
 }
