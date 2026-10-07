@@ -157,3 +157,39 @@ func TestRoundRobinAllUnhealthyBackends(t *testing.T) {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusServiceUnavailable)
 	}
 }
+
+func TestRandomSkipsUnhealthyBackends(t *testing.T) {
+	unhealthy := mockBackend(t, "a", http.StatusServiceUnavailable)
+	healthyFirst := mockHealthyServer(t, "b")
+	healthySecond := mockHealthyServer(t, "c")
+
+	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRandomTest(42, 99)
+	d.AddServer(unhealthy.URL, 1)
+	d.AddServer(healthyFirst.URL, 1)
+	d.AddServer(healthySecond.URL, 1)
+
+	for i, want := range []string{"c", "b", "c", "b", "b", "c", "c", "c"} {
+		response := httptest.NewRecorder()
+		d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want %d", i+1, response.Code, http.StatusOK)
+		}
+		if got := response.Header().Get("X-Backend"); got != want {
+			t.Fatalf("request %d: backend = %q, want %q", i+1, got, want)
+		}
+	}
+}
+
+func TestRandomAllUnhealthyBackends(t *testing.T) {
+	unhealthy := mockBackend(t, "a", http.StatusServiceUnavailable)
+	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRandomTest(42, 99)
+	d.AddServer(unhealthy.URL, 1)
+
+	response := httptest.NewRecorder()
+	d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusServiceUnavailable)
+	}
+}
