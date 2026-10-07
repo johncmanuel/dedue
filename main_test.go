@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/johncmanuel/dedue/internal/balancer"
@@ -191,5 +192,76 @@ func TestRandomAllUnhealthyBackends(t *testing.T) {
 	d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
 	if response.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestRandomNoBackends(t *testing.T) {
+	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRandomTest(42, 99)
+
+	response := httptest.NewRecorder()
+	d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestRandomOneHealthyAmongUnhealthyBackends(t *testing.T) {
+	unhealthy := mockBackend(t, "a", http.StatusServiceUnavailable)
+	healthy := mockHealthyServer(t, "b")
+
+	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRandomTest(42, 99)
+	d.AddServer(unhealthy.URL, 1)
+	d.AddServer(healthy.URL, 1)
+
+	for i := range 5 {
+		response := httptest.NewRecorder()
+		d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want %d", i+1, response.Code, http.StatusOK)
+		}
+		if got := response.Header().Get("X-Backend"); got != "b" {
+			t.Fatalf("request %d: backend = %q, want %q", i+1, got, "b")
+		}
+	}
+}
+
+func TestRandomConcurrentRequests(t *testing.T) {
+	const (
+		requests = 32
+	)
+
+	first := mockHealthyServer(t, "a")
+	second := mockHealthyServer(t, "b")
+	d := balancer.NewDedue()
+	d.Strategy = strategy.NewRandomTest(42, 99)
+	d.AddServer(first.URL, 1)
+	d.AddServer(second.URL, 1)
+
+	responses := make(chan *httptest.ResponseRecorder, requests)
+	var wg sync.WaitGroup
+	for range requests {
+		wg.Go(func() {
+			response := httptest.NewRecorder()
+			d.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+			responses <- response
+		})
+	}
+	wg.Wait()
+	close(responses)
+
+	counts := make(map[string]int)
+	for response := range responses {
+		if response.Code != http.StatusOK {
+			t.Errorf("status = %d, want %d", response.Code, http.StatusOK)
+		}
+		counts[response.Header().Get("X-Backend")]++
+	}
+	if got := counts["a"] + counts["b"]; got != requests {
+		t.Errorf("responses from healthy backends = %d, want %d (counts: %v)", got, requests, counts)
+	}
+	if counts["a"] == 0 || counts["b"] == 0 {
+		t.Errorf("both backends should receive requests; counts: %v", counts)
 	}
 }
