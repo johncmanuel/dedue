@@ -18,6 +18,8 @@ func TestRoundRobinEmptyEligibleServers(t *testing.T) {
 	}
 }
 
+// TestRoundRobinEligibleListShrinks tests that the round robin algorithm correctly handles the case where
+// the eligible list of servers shrinks between selections.
 func TestRoundRobinEligibleListShrinks(t *testing.T) {
 	roundRobin := NewRoundRobin()
 	servers := []Server{{Address: "a"}, {Address: "b"}, {Address: "c"}}
