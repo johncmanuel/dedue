@@ -24,6 +24,7 @@ func main() {
 	d.Strategy = strategy.NewRoundRobin()
 
 	// add backends from command line args
+	// currently using a static list of backends for testing
 	for _, address := range flag.Args() {
 		backend, err := url.Parse(address)
 		if err != nil || (backend.Scheme != "http" && backend.Scheme != "https") || backend.Host == "" {

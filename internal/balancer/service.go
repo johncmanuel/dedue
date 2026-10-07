@@ -37,6 +37,7 @@ func NewDedue() *Dedue {
 
 // ServeHTTP forwards a request to a healthy backend selected by the strategy.
 func (d *Dedue) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// check for healthy backends and select one using the configured strategy
 	d.mu.Lock()
 	eligible := make([]Server, 0, len(d.servers))
 	for _, server := range d.servers {
@@ -132,6 +133,7 @@ func (d *Dedue) PeriodicHealthCheck(ctx context.Context, interval time.Duration)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	// run health checks in a loop until the provided context is canceled
 	for {
 		// wait for the next tick or context cancellation
 		select {

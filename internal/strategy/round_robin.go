@@ -27,7 +27,11 @@ func (r *RoundRobin) Select(eligible []Server) (Server, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// health checks can shrink the eligible list, so need to ensure the currentIndex is within bounds
+	// befire accessing a server from the eligible list. basically if the currentIndex is out of bounds,
+	// wrap it around to the beginning of the list.
 	r.currentIndex %= len(eligible)
+
 	defer r.IncrementIndex(eligible)
 	return eligible[r.currentIndex], nil
 }
