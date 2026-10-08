@@ -14,6 +14,8 @@ type RoundRobin struct {
 	currentIndex int
 }
 
+// IncrementIndex increments the current index to point to the next server in the eligible list.
+// It wraps around to the beginning of the list when reaching the end.
 func (r *RoundRobin) IncrementIndex(eligible []Server) {
 	r.currentIndex = (r.currentIndex + 1) % len(eligible)
 }
