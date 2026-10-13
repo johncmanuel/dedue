@@ -60,6 +60,18 @@ func mockHealthyServer(t *testing.T, id string) *httptest.Server {
 	return mockBackend(t, id, http.StatusOK)
 }
 
+func liveBackendResponse(t *testing.T, client *http.Client, address string) (int, string) {
+	t.Helper()
+	response, err := client.Get(address)
+	if err != nil {
+		t.Fatalf("GET %s: %v", address, err)
+	}
+	if err := response.Body.Close(); err != nil {
+		t.Fatalf("close response body: %v", err)
+	}
+	return response.StatusCode, response.Header.Get("X-Backend")
+}
+
 // TestNoHealthyBackends tests that the load balancer returns a 503 Service Unavailable status when there are no healthy backends available.
 func TestNoHealthyBackends(t *testing.T) {
 	d := balancer.NewDedue()
@@ -297,5 +309,68 @@ func TestRandomConcurrentRequests(t *testing.T) {
 	}
 	if counts["a"] == 0 || counts["b"] == 0 {
 		t.Errorf("both backends should receive requests; counts: %v", counts)
+	}
+}
+
+func TestWeightedRoundRobinLiveTraffic(t *testing.T) {
+	first := mockHealthyServer(t, "a")
+	second := mockHealthyServer(t, "b")
+	d := balancer.NewDedue()
+	d.Strategy = strategy.NewWeightedRoundRobin()
+	d.AddServer(first.URL, 3)
+	d.AddServer(second.URL, 1)
+
+	frontend := httptest.NewServer(d)
+	t.Cleanup(frontend.Close)
+	client := frontend.Client()
+	for i, want := range []string{"a", "a", "b", "a", "a", "a", "b", "a"} {
+		status, backend := liveBackendResponse(t, client, frontend.URL+"/")
+		if status != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want %d", i+1, status, http.StatusOK)
+		}
+		if backend != want {
+			t.Errorf("request %d: backend = %q, want %q", i+1, backend, want)
+		}
+	}
+}
+
+func TestWeightedRoundRobinLiveSkipsUnhealthyAndDisabled(t *testing.T) {
+	unhealthy := mockBackend(t, "unhealthy", http.StatusServiceUnavailable)
+	disabled := mockHealthyServer(t, "disabled")
+	healthy := mockHealthyServer(t, "healthy")
+	d := balancer.NewDedue()
+	d.Strategy = &strategy.WeightedRoundRobin{}
+	d.AddServer(unhealthy.URL, 10)
+	d.AddServer(disabled.URL, 0)
+	d.AddServer(healthy.URL, 1)
+
+	frontend := httptest.NewServer(d)
+	t.Cleanup(frontend.Close)
+	client := frontend.Client()
+	for i := range 3 {
+		status, backend := liveBackendResponse(t, client, frontend.URL+"/")
+		if status != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want %d", i+1, status, http.StatusOK)
+		}
+		if backend != "healthy" {
+			t.Errorf("request %d: backend = %q, want %q", i+1, backend, "healthy")
+		}
+	}
+}
+
+func TestWeightedRoundRobinLiveNoPositiveWeight(t *testing.T) {
+	backend := mockHealthyServer(t, "disabled")
+	d := balancer.NewDedue()
+	d.Strategy = strategy.NewWeightedRoundRobin()
+	d.AddServer(backend.URL, 0)
+
+	frontend := httptest.NewServer(d)
+	t.Cleanup(frontend.Close)
+	status, selected := liveBackendResponse(t, frontend.Client(), frontend.URL+"/")
+	if status != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", status, http.StatusServiceUnavailable)
+	}
+	if selected != "" {
+		t.Errorf("backend = %q, want no backend", selected)
 	}
 }
