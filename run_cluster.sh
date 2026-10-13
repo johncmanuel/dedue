@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Usage: ./run_cluster.sh [num_servers] [base_port] [listen_addr]
-# Example: ./run_cluster.sh 3 9001 127.0.0.1:8080
+# Usage: ./run_cluster.sh [num_servers] [base_port] [listen_addr] [strategy]
+# Example: ./run_cluster.sh 3 9001 127.0.0.1:8080 random
 
 # Exit on error, undefined variable, or pipe failure
 set -euo pipefail
@@ -8,9 +8,10 @@ set -euo pipefail
 N="${1:-2}"
 BASE_PORT="${2:-9001}"
 LISTEN="${3:-127.0.0.1:8080}"
+STRATEGY="${4:-round-robin}"
 
 if ! [[ "$N" =~ ^[1-9][0-9]*$ ]]; then
-  echo "Usage: $0 [num_servers] [base_port] [listen_addr]" >&2
+  echo "Usage: $0 [num_servers] [base_port] [listen_addr] [strategy]" >&2
   exit 1
 fi
 
@@ -58,5 +59,5 @@ for ((i = 0; i < N; i++)); do
   fi
 done
 
-echo "Running: go run . -listen $LISTEN ${backends[*]}"
-go run . -listen "$LISTEN" "${backends[@]}" 2>&1 | tee "$LOG_DIR/go.log"
+echo "Running: go run . -listen $LISTEN -strategy $STRATEGY ${backends[*]}"
+go run . -listen "$LISTEN" -strategy "$STRATEGY" "${backends[@]}" 2>&1 | tee "$LOG_DIR/go.log"

@@ -14,9 +14,19 @@ curl -i http://127.0.0.1:8080/
 
 The Go mock backends return their ID in the body and `X-Backend` header. Each also serves `GET /health` with a 200 status. The balancer checks backend health at startup and every minute afterward. Press Ctrl-C in the cluster terminal to stop all servers. Use `./run_cluster.sh 3 9001 127.0.0.1:8080` to choose the backend count, first backend port, and listen address.
 
+The default strategy is `round-robin`. To use `random`, run `./run_cluster.sh 3 9001 127.0.0.1:8080 random`, or pass `-strategy=random` to `go run .` before the backend URLs. Other strategy names are rejected.
+
+Pass backend URLs directly to `go run .` to configure a static server list. Add `,weight` to set a positive weight for a backend; plain URLs default to weight 1:
+
+```bash
+go run . http://127.0.0.1:9001,3 http://127.0.0.1:9002,1
+```
+
+The current `round-robin` and `random` strategies do not use weights.
+
 ## Real time load testing
 
-Install [Vegeta](https://github.com/tsenart/vegeta), then start the cluster with `./run_cluster.sh`. In a second terminal, send 100 requests per second for 30 seconds:
+Install [Vegeta](https://github.com/tsenart/vegeta), then start the cluster with `./run_cluster.sh`. As an example, spin up a second terminal and send 100 requests per second for 30 seconds:
 
 ```bash
 printf 'GET http://127.0.0.1:8080/\n' | vegeta attack -rate=100 -duration=30s | vegeta report

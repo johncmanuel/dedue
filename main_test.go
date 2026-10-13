@@ -10,6 +10,40 @@ import (
 	"github.com/johncmanuel/dedue/internal/strategy"
 )
 
+func TestParseBackendArg(t *testing.T) {
+	tests := []struct {
+		name       string
+		arg        string
+		wantAddr   string
+		wantWeight int
+		wantErr    bool
+	}{
+		{"default weight", "http://127.0.0.1:9001", "http://127.0.0.1:9001", 1, false},
+		{"explicit weight", "http://127.0.0.1:9001,3", "http://127.0.0.1:9001", 3, false},
+		{"zero weight", "http://127.0.0.1:9001,0", "", 0, true},
+		{"negative weight", "http://127.0.0.1:9001,-1", "", 0, true},
+		{"nonnumeric weight", "http://127.0.0.1:9001,high", "", 0, true},
+		{"missing weight", "http://127.0.0.1:9001,", "", 0, true},
+		{"invalid URL", "http://", "", 0, true},
+		{"unsupported scheme", "ftp://127.0.0.1:9001", "", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			address, weight, err := parseBackendArg(tt.arg)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("parseBackendArg(%q) error = %v, want error %t", tt.arg, err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			if address != tt.wantAddr || weight != tt.wantWeight {
+				t.Errorf("parseBackendArg(%q) = (%q, %d), want (%q, %d)", tt.arg, address, weight, tt.wantAddr, tt.wantWeight)
+			}
+		})
+	}
+}
+
 func mockBackend(t *testing.T, id string, status int) *httptest.Server {
 	t.Helper()
 
