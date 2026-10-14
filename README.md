@@ -34,6 +34,16 @@ printf 'GET http://127.0.0.1:8080/\n' | vegeta attack -rate=100 -duration=30s | 
 
 Repeat with higher `-rate` values (for example, 500 and 1000). Compare the achieved request rate, errors, and latency percentiles as load increases. To estimate the balancer's overhead, run the same command against a mock backend directly by replacing port `8080` with `9001` (the default first backend port). Keep the rate and duration the same for both runs.
 
+For a repeatable run, keep `./run_cluster.sh` running and, in another terminal, run:
+
+```bash
+./scripts/load_test.sh                                    # 100, 500, and 1000 requests/s for 30s each
+./scripts/load_test.sh http://127.0.0.1:8080/ 5s 20 100   # shorter custom run
+./scripts/load_test.sh http://127.0.0.1:8080/ 5s 0        # unlimited rate with 20 workers
+```
+
+The script requires Vegeta and `jq`. It prints each Vegeta report, saves raw results and JSON metrics under the git-ignored `tmp/` directory, and exits with an error if any request fails or returns a status other than 200. A rate of `0` runs at full speed with 20 concurrent workers; set `VEGETA_WORKERS=50` to change that limit. Pass `http://127.0.0.1:9001/` as the URL to measure a mock backend directly with the same rates and duration.
+
 ## TODO
 
 1. Implement load balancing strats
