@@ -1,6 +1,6 @@
 # dedue
 
-dedue is a load balancer written in Go. Created for learning purposes! Currently supports static load balancing at the moment.
+[dedue](https://fireemblem.fandom.com/wiki/Dedue) is a load balancer written in Go. Created for learning purposes! Currently supports static load balancing at the moment.
 
 ## Run
 
