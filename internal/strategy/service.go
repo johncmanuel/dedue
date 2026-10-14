@@ -1,11 +1,6 @@
 // Package strategy defines the server selection contract for load balancing.
 package strategy
 
-// TODO: strategies to implement:
-// 1. Round Robin
-// 2. Weighted Round Robin
-// 3. Random
-
 // Server is dedue's representation of a backend server.
 type Server struct {
 	// Address is the address of the server, e.g. "http://localhost:8080"

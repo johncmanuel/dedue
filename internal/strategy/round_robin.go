@@ -7,6 +7,9 @@ import (
 
 // RoundRobin is a load balancing strategy that distributes requests in a round-robin fashion. It uses an index to track the next server to be selected from the list of eligible servers.
 // Each time a server is selected, the index increments. When reaching the end of the list, it wraps around to the beginning of the list.
+// Example: given servers A, B, C, the algorithm selects the servers in this order: A, B, C, A, B, C, ...
+// Note it doesn't account for external varaibles like server load, network bandwidth, etc., which arguably isn't
+// favorable for use in production settings.
 type RoundRobin struct {
 	// mu is a mutex used to synchronize access to currentIndex.
 	mu sync.Mutex

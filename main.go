@@ -26,16 +26,11 @@ func main() {
 
 	d := balancer.NewDedue()
 
-	switch *strategyName {
-	case "round-robin":
-		d.Strategy = strategy.NewRoundRobin()
-	case "random":
-		d.Strategy = strategy.NewRandom()
-	case "weighted-round-robin":
-		d.Strategy = strategy.NewWeightedRoundRobin()
-	default:
-		log.Fatalf("unknown strategy %q: choose round-robin, random, or weighted-round-robin", *strategyName)
+	s, err := getStrategyFromFlag(*strategyName)
+	if err != nil {
+		log.Fatal(err)
 	}
+	d.Strategy = s
 
 	// add backends from command line args
 	for _, arg := range flag.Args() {
@@ -54,6 +49,7 @@ func main() {
 	}
 }
 
+// parseBackendArg parses a backend argument in the form of "url[,weight]" and returns the address and weight.
 func parseBackendArg(arg string) (string, int, error) {
 	address, weightText, hasWeight := strings.Cut(arg, ",")
 	weight := 1
@@ -77,4 +73,18 @@ func parseBackendArg(arg string) (string, int, error) {
 	}
 
 	return address, weight, nil
+}
+
+// getStrategyFromFlag returns a BalancingStrategy based on the provided strategy name.
+func getStrategyFromFlag(strategyName string) (strategy.BalancingStrategy, error) {
+	switch strategyName {
+	case "round-robin":
+		return strategy.NewRoundRobin(), nil
+	case "random":
+		return strategy.NewRandom(), nil
+	case "weighted-round-robin":
+		return strategy.NewWeightedRoundRobin(), nil
+	default:
+		return nil, fmt.Errorf("unknown strategy %q: choose round-robin, random, or weighted-round-robin", strategyName)
+	}
 }

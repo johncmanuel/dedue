@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Usage: ./run_cluster.sh [num_servers] [base_port] [listen_addr] [strategy]
-# Example: ./run_cluster.sh 3 9001 127.0.0.1:8080 random
+# Usage: ./scripts/run_cluster.sh [num_servers] [base_port] [listen_addr] [strategy]
+# Example: ./scripts/run_cluster.sh 3 9001 127.0.0.1:8080 random
 
 # Exit on error, undefined variable, or pipe failure
 set -euo pipefail

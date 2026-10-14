@@ -106,6 +106,7 @@ func (d *Dedue) HealthCheck(ctx context.Context, address string) bool {
 		return false
 	}
 
+	// ensure the health check is performed on the /health endpoint
 	probeURL.Path = "/health"
 	probeURL.RawPath = ""
 	probeURL.RawQuery = ""
@@ -128,7 +129,7 @@ func (d *Dedue) HealthCheck(ctx context.Context, address string) bool {
 	return healthy
 }
 
-// PeriodicHealthCheck updates backend health until ctx is canceled.
+// PeriodicHealthCheck continuously updates backend health until ctx is canceled.
 func (d *Dedue) PeriodicHealthCheck(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
