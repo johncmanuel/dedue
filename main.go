@@ -18,10 +18,10 @@ import (
 func main() {
 	// parse command line flags
 	listen := flag.String("listen", ":8080", "address to listen on")
-	strategyName := flag.String("strategy", "round-robin", "balancing strategy: round-robin or random")
+	strategyName := flag.String("strategy", "round-robin", "balancing strategy: round-robin, random, or weighted-round-robin")
 	flag.Parse()
 	if flag.NArg() == 0 {
-		log.Fatal("usage: dedue [-listen :8080] [-strategy round-robin|random] <backend-url[,weight]>...")
+		log.Fatal("usage: dedue [-listen :8080] [-strategy round-robin|random|weighted-round-robin] <backend-url[,weight]>...")
 	}
 
 	d := balancer.NewDedue()
@@ -31,8 +31,10 @@ func main() {
 		d.Strategy = strategy.NewRoundRobin()
 	case "random":
 		d.Strategy = strategy.NewRandom()
+	case "weighted-round-robin":
+		d.Strategy = strategy.NewWeightedRoundRobin()
 	default:
-		log.Fatalf("unknown strategy %q: choose round-robin or random", *strategyName)
+		log.Fatalf("unknown strategy %q: choose round-robin, random, or weighted-round-robin", *strategyName)
 	}
 
 	// add backends from command line args
